@@ -94,6 +94,34 @@ namespace DepotDownloader
             return true;
         }
 
+        static HashSet<string> ExtractAllParentDirectories(HashSet<string> filePaths)
+        {
+            var parentDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (filePaths == null)
+                return parentDirs;
+
+            // Build parent directories using normalized '/' separators so comparisons are consistent
+            foreach (var filePath in filePaths)
+            {
+                var normalized = NormalizeManifestPath(filePath);
+                if (string.IsNullOrEmpty(normalized))
+                    continue;
+
+                var parts = normalized.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length <= 1)
+                    continue;
+
+                // Build progressively shorter paths: "a/b/c" -> add "a/b", then "a"
+                for (int i = parts.Length - 1; i >= 1; i--)
+                {
+                    var parent = string.Join('/', parts, 0, i);
+                    parentDirs.Add(parent);
+                }
+            }
+
+            return parentDirs;
+        }
+
         static bool TestIsFileIncluded(string filename)
         {
             if (!Config.UsingFileList)
@@ -132,38 +160,41 @@ namespace DepotDownloader
         // Remove empty directories and optionally orphan files left over from previous updates.
         // If deleteOrphanFiles is true, all files not in the manifest are deleted (useful for clean updates).
         // If false, only empty directories are removed (preserves mods, user files, etc.).
-        static void RemoveOrphanFilesAndEmptyDirectories(string installDir, HashSet<string> allowedRelativePaths, bool deleteOrphanFiles)
+        static void RemoveOrphanFiles(string installDir, HashSet<string> allowedRelativePaths)
         {
-            if (allowedRelativePaths == null)
+            if (allowedRelativePaths == null || !Config.DeleteOrphanFiles)
                 return;
 
-            if (deleteOrphanFiles)
+            var allowed = new HashSet<string>(allowedRelativePaths.Select(NormalizeManifestPath), StringComparer.OrdinalIgnoreCase);
+
+            foreach (var filePath in Directory.EnumerateFiles(installDir, "*", SearchOption.AllDirectories))
             {
-                var allowed = new HashSet<string>(allowedRelativePaths.Select(NormalizeManifestPath), StringComparer.OrdinalIgnoreCase);
+                if (IsPathInConfigDirectory(filePath, installDir))
+                    continue;
 
-                foreach (var filePath in Directory.EnumerateFiles(installDir, "*", SearchOption.AllDirectories))
+                var relativePath = NormalizeManifestPath(Path.GetRelativePath(installDir, filePath));
+
+                if (allowed.Contains(relativePath))
+                    continue;
+
+                try
                 {
-                    if (IsPathInConfigDirectory(filePath, installDir))
-                        continue;
-
-                    var relativePath = NormalizeManifestPath(Path.GetRelativePath(installDir, filePath));
-
-                    if (allowed.Contains(relativePath))
-                        continue;
-
-                    try
-                    {
-                        File.Delete(filePath);
-                        Console.WriteLine("Deleted orphan file {0}", filePath);
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine("Warning: Failed to delete orphan file {0}: {1}", filePath, ex.Message);
-                    }
+                    File.Delete(filePath);
+                    Console.WriteLine("Deleted orphan file {0}", filePath);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Warning: Failed to delete orphan file {0}: {1}", filePath, ex.Message);
                 }
             }
+        }
 
-            // only delete empty directories (excluding the config directory).
+        static void RemoveEmptyDirectories(string installDir, HashSet<string> allowedDirectories)
+        {
+            if (!Directory.Exists(installDir))
+                return;
+
+            // Delete empty directories (excluding the config directory and allowed manifest directories).
             foreach (var dirPath in Directory.EnumerateDirectories(installDir, "*", SearchOption.AllDirectories)
                                                .OrderByDescending(d => d.Length))
             {
@@ -171,6 +202,11 @@ namespace DepotDownloader
                     continue;
 
                 if (!Directory.Exists(dirPath))
+                    continue;
+
+                // Check if this directory is a parent of files in the manifest
+                var relativeDirPath = NormalizeManifestPath(Path.GetRelativePath(installDir, dirPath));
+                if (allowedDirectories != null && allowedDirectories.Contains(relativeDirPath))
                     continue;
 
                 // If the directory contains no files or subdirectories, delete it.
@@ -820,16 +856,15 @@ namespace DepotDownloader
                 }
             }
 
-            // Clean up any orphan files or empty folders before downloading.
-            // This removes files and folders that are not present in the current manifest(s),
-            // while preserving the internal ".DepotDownloader" directory used for state.
+            // Remove orphan files before downloading (if --delete-orphan is set).
+            // This is optional and only runs if user explicitly requests it.
             foreach (var depotFileData in depotsToDownload)
             {
                 var allowedRelativePaths = string.IsNullOrWhiteSpace(Config.InstallDirectory)
                     ? depotFileData.allFileNames
                     : allFileNamesAllDepots;
 
-                RemoveOrphanFilesAndEmptyDirectories(depotFileData.depotDownloadInfo.InstallDir, allowedRelativePaths, Config.DeleteOrphanFiles);
+                RemoveOrphanFiles(depotFileData.depotDownloadInfo.InstallDir, allowedRelativePaths);
             }
 
             // Pre-delete files that existed in the previous manifest but are not present in the new manifests
@@ -872,6 +907,18 @@ namespace DepotDownloader
             foreach (var depotFileData in depotsToDownload)
             {
                 await DownloadSteam3AsyncDepotFiles(cts, downloadCounter, depotFileData, allFileNamesAllDepots);
+            }
+
+            // Clean up empty directories after download is complete.
+            // This is safe because all new files have been written and parent directories are no longer needed.
+            foreach (var depotFileData in depotsToDownload)
+            {
+                var allowedRelativePaths = string.IsNullOrWhiteSpace(Config.InstallDirectory)
+                    ? depotFileData.allFileNames
+                    : allFileNamesAllDepots;
+
+                var allowedDirectories = ExtractAllParentDirectories(allowedRelativePaths);
+                RemoveEmptyDirectories(depotFileData.depotDownloadInfo.InstallDir, allowedDirectories);
             }
 
             Ansi.Progress(Ansi.ProgressState.Hidden);
