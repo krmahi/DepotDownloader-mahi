@@ -180,11 +180,11 @@ namespace DepotDownloader
                 try
                 {
                     File.Delete(filePath);
-                    Console.WriteLine("Deleted orphan file {0}", filePath);
+                    ProgressDisplay.WriteLine("Deleted orphan file {0}", filePath);
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine("Warning: Failed to delete orphan file {0}: {1}", filePath, ex.Message);
+                    ProgressDisplay.WriteLine("Warning: Failed to delete orphan file {0}: {1}", filePath, ex.Message);
                 }
             }
         }
@@ -215,11 +215,11 @@ namespace DepotDownloader
                     try
                     {
                         Directory.Delete(dirPath);
-                        Console.WriteLine("Deleted empty folder {0}", dirPath);
+                        ProgressDisplay.WriteLine("Deleted empty folder {0}", dirPath);
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine("Warning: Failed to delete empty folder {0}: {1}", dirPath, ex.Message);
+                        ProgressDisplay.WriteLine("Warning: Failed to delete empty folder {0}: {1}", dirPath, ex.Message);
                     }
                 }
             }
@@ -337,7 +337,7 @@ namespace DepotDownloader
                 if (otherAppId == appId)
                 {
                     // This shouldn't ever happen, but ya never know with Valve. Don't infinite loop.
-                    Console.WriteLine("App {0}, Depot {1} has depotfromapp of {2}!",
+                    ProgressDisplay.WriteLine("App {0}, Depot {1} has depotfromapp of {2}!",
                         appId, depotId, otherAppId);
                     return INVALID_MANIFEST_ID;
                 }
@@ -365,7 +365,7 @@ namespace DepotDownloader
             // Either the branch just doesn't exist, or it has a password
             if (string.IsNullOrEmpty(Config.BetaPassword))
             {
-                Console.WriteLine($"Branch {branch} for depot {depotId} was not found, either it does not exist or it has a password.");
+                ProgressDisplay.WriteLine($"Branch {branch} for depot {depotId} was not found, either it does not exist or it has a password.");
                 return INVALID_MANIFEST_ID;
             }
 
@@ -376,7 +376,7 @@ namespace DepotDownloader
 
                 if (!steam3.AppBetaPasswords.ContainsKey(branch))
                 {
-                    Console.WriteLine($"Error: Password was invalid for branch {branch} (or the branch does not exist)");
+                    ProgressDisplay.WriteLine($"Error: Password was invalid for branch {branch} (or the branch does not exist)");
                     return INVALID_MANIFEST_ID;
                 }
             }
@@ -435,7 +435,7 @@ namespace DepotDownloader
 
             if (!steam3.WaitForCredentials())
             {
-                Console.WriteLine("Unable to get steam3 credentials.");
+                ProgressDisplay.WriteLine("Unable to get steam3 credentials.");
                 return false;
             }
 
@@ -475,12 +475,12 @@ namespace DepotDownloader
                 }
                 else
                 {
-                    Console.WriteLine("Unable to locate manifest ID for published file {0}", publishedFileId);
+                    ProgressDisplay.WriteLine("Unable to locate manifest ID for published file {0}", publishedFileId);
                 }
             }
             else
             {
-                Console.WriteLine("Published file {0} has unsupported file type {1}. Skipping file", publishedFileId, fileType);
+                ProgressDisplay.WriteLine("Published file {0} has unsupported file type {1}. Skipping file", publishedFileId, fileType);
             }
         }
 
@@ -513,7 +513,7 @@ namespace DepotDownloader
             }
             else
             {
-                Console.WriteLine($"Unable to query UGC details for {ugcId} from an anonymous account");
+                ProgressDisplay.WriteLine($"Unable to query UGC details for {ugcId} from an anonymous account");
             }
 
             if (!string.IsNullOrEmpty(details?.URL))
@@ -530,7 +530,7 @@ namespace DepotDownloader
         {
             if (!CreateDirectories(appId, 0, out var installDir))
             {
-                Console.WriteLine("Error: Unable to create install directories!");
+                ProgressDisplay.WriteLine("Error: Unable to create install directories!");
                 return;
             }
 
@@ -544,7 +544,7 @@ namespace DepotDownloader
             using (var file = File.OpenWrite(fileStagingPath))
             using (var client = HttpClientFactory.CreateHttpClient())
             {
-                Console.WriteLine("Downloading {0}", fileName);
+                ProgressDisplay.WriteLine("Downloading {0}", fileName);
                 var responseStream = await client.GetStreamAsync(url);
                 await responseStream.CopyToAsync(file);
             }
@@ -577,7 +577,7 @@ namespace DepotDownloader
             {
                 if (steam3.steamUser.SteamID.AccountType != EAccountType.AnonUser && await steam3.RequestFreeAppLicense(appId))
                 {
-                    Console.WriteLine("Obtained FreeOnDemand license for app {0}", appId);
+                    ProgressDisplay.WriteLine("Obtained FreeOnDemand license for app {0}", appId);
 
                     // Fetch app info again in case we didn't get it fully without a license.
                     await steam3.RequestAppInfo(appId, true);
@@ -607,7 +607,7 @@ namespace DepotDownloader
             }
             else
             {
-                Console.WriteLine("Using app branch: '{0}'.", branch);
+                ProgressDisplay.WriteLine("Using app branch: '{0}'.", branch);
 
                 if (depots != null)
                 {
@@ -693,7 +693,7 @@ namespace DepotDownloader
                 }
             }
 
-            Console.WriteLine();
+            ProgressDisplay.WriteLine();
 
             try
             {
@@ -701,7 +701,7 @@ namespace DepotDownloader
             }
             catch (OperationCanceledException)
             {
-                Console.WriteLine("App {0} was not completely downloaded.", appId);
+                ProgressDisplay.WriteLine("App {0} was not completely downloaded.", appId);
                 throw;
             }
         }
@@ -715,7 +715,7 @@ namespace DepotDownloader
             /*
             if (!await AccountHasAccess(appId, depotId))
             {
-                Console.WriteLine("Depot {0} is not available from this account.", depotId);
+                ProgressDisplay.WriteLine("Depot {0} is not available from this account.", depotId);
 
                 return null;
             }
@@ -726,14 +726,14 @@ namespace DepotDownloader
                 manifestId = await GetSteam3DepotManifest(depotId, appId, branch);
                 if (manifestId == INVALID_MANIFEST_ID && !string.Equals(branch, DEFAULT_BRANCH, StringComparison.OrdinalIgnoreCase))
                 {
-                    Console.WriteLine("Warning: Depot {0} does not have branch named \"{1}\". Trying {2} branch.", depotId, branch, DEFAULT_BRANCH);
+                    ProgressDisplay.WriteLine("Warning: Depot {0} does not have branch named \"{1}\". Trying {2} branch.", depotId, branch, DEFAULT_BRANCH);
                     branch = DEFAULT_BRANCH;
                     manifestId = await GetSteam3DepotManifest(depotId, appId, branch);
                 }
 
                 if (manifestId == INVALID_MANIFEST_ID)
                 {
-                    Console.WriteLine("Depot {0} missing public subsection or manifest section.", depotId);
+                    ProgressDisplay.WriteLine("Depot {0} missing public subsection or manifest section.", depotId);
                     return null;
                 }
             }
@@ -750,7 +750,7 @@ namespace DepotDownloader
             }
             if (!steam3.DepotKeys.TryGetValue(depotId, out depotKey))
             {
-                Console.WriteLine("No valid depot key for {0}, unable to download.", depotId);
+                ProgressDisplay.WriteLine("No valid depot key for {0}, unable to download.", depotId);
                 return null;
             }
 
@@ -758,7 +758,7 @@ namespace DepotDownloader
 
             if (!CreateDirectories(depotId, uVersion, out var installDir))
             {
-                Console.WriteLine("Error: Unable to create install directories!");
+                ProgressDisplay.WriteLine("Error: Unable to create install directories!");
                 return null;
             }
 
@@ -895,18 +895,33 @@ namespace DepotDownloader
                     try
                     {
                         File.Delete(fileFinalPath);
-                        Console.WriteLine("Deleted {0}", fileFinalPath);
+                        ProgressDisplay.WriteLine("Deleted {0}", fileFinalPath);
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine("Warning: Failed to delete {0}: {1}", fileFinalPath, ex.Message);
+                        ProgressDisplay.WriteLine("Warning: Failed to delete {0}: {1}", fileFinalPath, ex.Message);
                     }
                 }
             }
 
-            foreach (var depotFileData in depotsToDownload)
+            ProgressDisplay.Start(() =>
             {
-                await DownloadSteam3AsyncDepotFiles(cts, downloadCounter, depotFileData, allFileNamesAllDepots);
+                lock (downloadCounter)
+                {
+                    return (downloadCounter.totalBytesUncompressed, downloadCounter.completeDownloadSize);
+                }
+            });
+
+            try
+            {
+                foreach (var depotFileData in depotsToDownload)
+                {
+                    await DownloadSteam3AsyncDepotFiles(cts, downloadCounter, depotFileData, allFileNamesAllDepots);
+                }
+            }
+            finally
+            {
+                ProgressDisplay.Stop();
             }
 
             // Clean up empty directories after download is complete.
@@ -923,7 +938,7 @@ namespace DepotDownloader
 
             Ansi.Progress(Ansi.ProgressState.Hidden);
 
-            Console.WriteLine("Total downloaded: {0} bytes ({1} bytes uncompressed) from {2} depots",
+            ProgressDisplay.WriteLine("Total downloaded: {0} bytes ({1} bytes uncompressed) from {2} depots",
                 downloadCounter.totalBytesCompressed, downloadCounter.totalBytesUncompressed, depots.Count);
         }
 
@@ -931,7 +946,7 @@ namespace DepotDownloader
         {
             var depotCounter = new DepotDownloadCounter();
 
-            Console.WriteLine("Processing depot {0}", depot.DepotId);
+            ProgressDisplay.WriteLine("Processing depot {0}", depot.DepotId);
 
             DepotManifest oldManifest = null;
             DepotManifest newManifest = null;
@@ -956,26 +971,26 @@ namespace DepotDownloader
                     {
                         if (!newManifest.DecryptFilenames(depot.DepotKey))
                         {
-                            Console.WriteLine("Failed to decrypt filenames in manifest file.");
+                            ProgressDisplay.WriteLine("Failed to decrypt filenames in manifest file.");
                             return null;
                         }
                     }
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("Failed to load manifest file '{0}': {1}", Config.ManifestFile, e.Message);
+                    ProgressDisplay.WriteLine("Failed to load manifest file '{0}': {1}", Config.ManifestFile, e.Message);
                     return null;
                 }
             }
 
             if (newManifest != null)
             {
-                Console.WriteLine("Using specified manifest file for depot {0}.", depot.DepotId);
+                ProgressDisplay.WriteLine("Using specified manifest file for depot {0}.", depot.DepotId);
             }
             else if (lastManifestId == depot.ManifestId && oldManifest != null)
             {
                 newManifest = oldManifest;
-                Console.WriteLine("Already have manifest {0} for depot {1}.", depot.ManifestId, depot.DepotId);
+                ProgressDisplay.WriteLine("Already have manifest {0} for depot {1}.", depot.ManifestId, depot.DepotId);
             }
             else
             {
@@ -983,11 +998,11 @@ namespace DepotDownloader
 
                 if (newManifest != null)
                 {
-                    Console.WriteLine("Already have manifest {0} for depot {1}.", depot.ManifestId, depot.DepotId);
+                    ProgressDisplay.WriteLine("Already have manifest {0} for depot {1}.", depot.ManifestId, depot.DepotId);
                 }
                 else
                 {
-                    Console.WriteLine($"Downloading depot {depot.DepotId} manifest");
+                    ProgressDisplay.WriteLine($"Downloading depot {depot.DepotId} manifest");
 
                     ulong manifestRequestCode = 0;
                     var manifestRequestCodeExpiration = DateTime.MinValue;
@@ -1048,7 +1063,7 @@ namespace DepotDownloader
                         }
                         catch (TaskCanceledException)
                         {
-                            Console.WriteLine("Connection timeout downloading depot manifest {0} {1}. Retrying.", depot.DepotId, depot.ManifestId);
+                            ProgressDisplay.WriteLine("Connection timeout downloading depot manifest {0} {1}. Retrying.", depot.DepotId, depot.ManifestId);
                         }
                         catch (SteamKitWebRequestException e)
                         {
@@ -1066,17 +1081,17 @@ namespace DepotDownloader
 
                             if (e.StatusCode == HttpStatusCode.Unauthorized || e.StatusCode == HttpStatusCode.Forbidden)
                             {
-                                Console.WriteLine("Encountered {2} for depot manifest {0} {1}. Aborting.", depot.DepotId, depot.ManifestId, (int)e.StatusCode);
+                                ProgressDisplay.WriteLine("Encountered {2} for depot manifest {0} {1}. Aborting.", depot.DepotId, depot.ManifestId, (int)e.StatusCode);
                                 break;
                             }
 
                             if (e.StatusCode == HttpStatusCode.NotFound)
                             {
-                                Console.WriteLine("Encountered 404 for depot manifest {0} {1}. Aborting.", depot.DepotId, depot.ManifestId);
+                                ProgressDisplay.WriteLine("Encountered 404 for depot manifest {0} {1}. Aborting.", depot.DepotId, depot.ManifestId);
                                 break;
                             }
 
-                            Console.WriteLine("Encountered error downloading depot manifest {0} {1}: {2}", depot.DepotId, depot.ManifestId, e.StatusCode);
+                            ProgressDisplay.WriteLine("Encountered error downloading depot manifest {0} {1}: {2}", depot.DepotId, depot.ManifestId, e.StatusCode);
                         }
                         catch (OperationCanceledException)
                         {
@@ -1085,13 +1100,13 @@ namespace DepotDownloader
                         catch (Exception e)
                         {
                             cdnPool.ReturnBrokenConnection(connection);
-                            Console.WriteLine("Encountered error downloading manifest for depot {0} {1}: {2}", depot.DepotId, depot.ManifestId, e.Message);
+                            ProgressDisplay.WriteLine("Encountered error downloading manifest for depot {0} {1}: {2}", depot.DepotId, depot.ManifestId, e.Message);
                         }
                     } while (newManifest == null);
 
                     if (newManifest == null)
                     {
-                        Console.WriteLine("\nUnable to download manifest {0} for depot {1}", depot.ManifestId, depot.DepotId);
+                        ProgressDisplay.WriteLine("\nUnable to download manifest {0} for depot {1}", depot.ManifestId, depot.DepotId);
                         cts.Cancel();
                     }
 
@@ -1100,7 +1115,7 @@ namespace DepotDownloader
                 }
             }
 
-            Console.WriteLine("Manifest {0} ({1})", depot.ManifestId, newManifest.CreationTime);
+            ProgressDisplay.WriteLine("Manifest {0} ({1})", depot.ManifestId, newManifest.CreationTime);
 
             if (Config.DownloadManifestOnly)
             {
@@ -1117,7 +1132,7 @@ namespace DepotDownloader
             // so they know chunk-level verification and reuse will be attempted.
             if (oldManifest != null)
             {
-                Console.WriteLine("Using saved previous manifest {0} from {1} for delta verification (will reuse unchanged chunks where possible).", lastManifestId, configDir);
+                ProgressDisplay.WriteLine("Using saved previous manifest {0} from {1} for delta verification (will reuse unchanged chunks where possible).", lastManifestId, configDir);
             }
 
             // Pre-process
@@ -1162,7 +1177,7 @@ namespace DepotDownloader
             var depot = depotFilesData.depotDownloadInfo;
             var depotCounter = depotFilesData.depotCounter;
 
-            Console.WriteLine("Downloading depot {0}", depot.DepotId);
+            ProgressDisplay.WriteLine("Downloading depot {0}", depot.DepotId);
 
             var files = depotFilesData.filteredFiles.Where(f => !f.Flags.HasFlag(EDepotFileFlag.Directory)).ToArray();
             var networkChunkQueue = new ConcurrentQueue<(FileStreamData fileStreamData, DepotManifest.FileData fileData, DepotManifest.ChunkData chunk)>();
@@ -1196,7 +1211,7 @@ namespace DepotDownloader
             DepotConfigStore.Instance.InstalledManifestIDs[depot.DepotId] = depot.ManifestId;
             DepotConfigStore.Save();
 
-            Console.WriteLine("Depot {0} - Downloaded {1} bytes ({2} bytes uncompressed)", depot.DepotId, depotCounter.depotBytesCompressed, depotCounter.depotBytesUncompressed);
+            ProgressDisplay.WriteLine("Depot {0} - Downloaded {1} bytes ({2} bytes uncompressed)", depot.DepotId, depotCounter.depotBytesCompressed, depotCounter.depotBytesUncompressed);
         }
 
         private static void DownloadSteam3AsyncDepotFile(
@@ -1232,7 +1247,7 @@ namespace DepotDownloader
             var fileDidExist = fi.Exists;
             if (!fileDidExist)
             {
-                Console.WriteLine("Pre-allocating {0}", fileFinalPath);
+                ProgressDisplay.WriteLine("Pre-allocating {0}", fileFinalPath);
 
                 // create new file. need all chunks
                 using var fs = File.Create(fileFinalPath);
@@ -1260,7 +1275,7 @@ namespace DepotDownloader
                         // we have a version of this file, but it doesn't fully match what we want
                         if (Config.VerifyAll)
                         {
-                            Console.WriteLine("Validating {0}", fileFinalPath);
+                            ProgressDisplay.WriteLine("Validating {0}", fileFinalPath);
                         }
 
                         var matchingChunks = new List<ChunkMatch>();
@@ -1308,7 +1323,7 @@ namespace DepotDownloader
                             var toDownload = neededChunks.Count;
                             var savedBytes = copyChunks.Sum(c => (long)c.OldChunk.UncompressedLength);
 
-                            Console.WriteLine("File: {0} -> matched chunks: {1}, copied: {2}, to download: {3}, estimated saved bytes: {4}", fileFinalPath, matched, copied, toDownload, savedBytes);
+                            ProgressDisplay.WriteLine("File: {0} -> matched chunks: {1}, copied: {2}, to download: {3}, estimated saved bytes: {4}", fileFinalPath, matched, copied, toDownload, savedBytes);
                         }
                         catch
                         {
@@ -1364,7 +1379,7 @@ namespace DepotDownloader
                         }
                     }
 
-                    Console.WriteLine("Validating {0}", fileFinalPath);
+                    ProgressDisplay.WriteLine("Validating {0}", fileFinalPath);
                     neededChunks = Util.ValidateSteam3FileChecksums(fs, [.. file.Chunks.OrderBy(x => x.Offset)]);
                 }
 
@@ -1373,7 +1388,7 @@ namespace DepotDownloader
                     lock (depotDownloadCounter)
                     {
                         depotDownloadCounter.sizeDownloaded += file.TotalSize;
-                        Console.WriteLine("{0,6:#00.00}% {1}", (depotDownloadCounter.sizeDownloaded / (float)depotDownloadCounter.completeDownloadSize) * 100.0f, fileFinalPath);
+                        ProgressDisplay.WriteLine("{0,6:#00.00}% {1}", (depotDownloadCounter.sizeDownloaded / (float)depotDownloadCounter.completeDownloadSize) * 100.0f, fileFinalPath);
                     }
 
                     lock (downloadCounter)
@@ -1472,7 +1487,7 @@ namespace DepotDownloader
                     }
                     catch (TaskCanceledException)
                     {
-                        Console.WriteLine("Connection timeout downloading chunk {0}", chunkID);
+                        ProgressDisplay.WriteLine("Connection timeout downloading chunk {0}", chunkID);
                         cdnPool.ReturnBrokenConnection(connection);
                     }
                     catch (SteamKitWebRequestException e)
@@ -1493,11 +1508,11 @@ namespace DepotDownloader
 
                         if (e.StatusCode == HttpStatusCode.Unauthorized || e.StatusCode == HttpStatusCode.Forbidden)
                         {
-                            Console.WriteLine("Encountered {1} for chunk {0}. Aborting.", chunkID, (int)e.StatusCode);
+                            ProgressDisplay.WriteLine("Encountered {1} for chunk {0}. Aborting.", chunkID, (int)e.StatusCode);
                             break;
                         }
 
-                        Console.WriteLine("Encountered error downloading chunk {0}: {1}", chunkID, e.StatusCode);
+                        ProgressDisplay.WriteLine("Encountered error downloading chunk {0}: {1}", chunkID, e.StatusCode);
                     }
                     catch (OperationCanceledException)
                     {
@@ -1506,13 +1521,13 @@ namespace DepotDownloader
                     catch (Exception e)
                     {
                         cdnPool.ReturnBrokenConnection(connection);
-                        Console.WriteLine("Encountered unexpected error downloading chunk {0}: {1}", chunkID, e.Message);
+                        ProgressDisplay.WriteLine("Encountered unexpected error downloading chunk {0}: {1}", chunkID, e.Message);
                     }
                 } while (written == 0);
 
                 if (written == 0)
                 {
-                    Console.WriteLine("Failed to find any server with chunk {0} for depot {1}. Aborting.", chunkID, depot.DepotId);
+                    ProgressDisplay.WriteLine("Failed to find any server with chunk {0} for depot {1}. Aborting.", chunkID, depot.DepotId);
                     cts.Cancel();
                 }
 
@@ -1569,7 +1584,7 @@ namespace DepotDownloader
             if (remainingChunks == 0)
             {
                 var fileFinalPath = Path.Combine(depot.InstallDir, file.FileName);
-                Console.WriteLine("{0,6:#00.00}% {1}", (sizeDownloaded / (float)depotDownloadCounter.completeDownloadSize) * 100.0f, fileFinalPath);
+                ProgressDisplay.WriteLine("{0,6:#00.00}% {1}", (sizeDownloaded / (float)depotDownloadCounter.completeDownloadSize) * 100.0f, fileFinalPath);
             }
         }
 
