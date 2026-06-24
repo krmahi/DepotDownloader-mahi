@@ -1152,10 +1152,15 @@ namespace DepotDownloader
             var files = depotFilesData.filteredFiles.Where(f => !f.Flags.HasFlag(EDepotFileFlag.Directory)).ToArray();
             var networkChunkQueue = new ConcurrentQueue<(FileStreamData fileStreamData, DepotManifest.FileData fileData, DepotManifest.ChunkData chunk)>();
 
-            // Seed totalWork once upfront so the denominator never changes.
+            // Seed totalWork upfront, subtracting files that don't exist on disk (new files)
+            // since they require no validation work — they go straight to download.
             foreach (var f in files)
             {
-                downloadCounter.totalWork += f.TotalSize;
+                var filePath = Path.Combine(depot.InstallDir, f.FileName);
+                if (File.Exists(filePath))
+                {
+                    downloadCounter.totalWork += f.TotalSize;
+                }
             }
 
             downloadCounter.FilesToScan = files.Length;
@@ -1229,13 +1234,6 @@ namespace DepotDownloader
                 }
 
                 neededChunks = new List<DepotManifest.ChunkData>(file.Chunks);
-
-                // New files have no validation work — all chunks go to download.
-                // Subtract from totalWork so the validation bar only counts actual validation.
-                lock (downloadCounter)
-                {
-                    downloadCounter.totalWork -= file.TotalSize;
-                }
 
                 ProgressDisplay.WriteLine("\x1B[90m  + {0}  ({1})\x1B[0m",
                     file.FileName, ProgressDisplay.FormatBytes(file.TotalSize));
